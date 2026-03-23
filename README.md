@@ -1,8 +1,9 @@
 # Purpose
+In rare situation where you need to clean up an NKP environment completely (ex: Management Cluster got spun up with wrong parameters and you need to delete it), this script helps clean it up. 
 
-Clean up **Nutanix Kubernetes Platform (NKP)**–related **PVC volume groups** and optionally **delete powered-off worker VMs**. This tool includes an infrastructure report of NKP clusters (via **`--discover`**).
+This is most helpful for de-attaching the PVCs from the VMs programmatically.
 
-**Safety:** Storage cleanup paths only consider VMs that are **powered OFF** and match the given **`--cluster`** label (`KubernetesClusterName` / `kubernetes_cluster_name` on metadata or spec). Destructive steps prompt for **`yes`** before running.
+Requires the VM's to be shutdown before it's a candidate for this script. Destructive steps prompt you for **`yes`** before running.
 
 ---
 
