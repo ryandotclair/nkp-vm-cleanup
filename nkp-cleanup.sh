@@ -362,7 +362,13 @@ api_v3_list_all_entities() {
         pageSize=500
     fi
     local offset=0
-    local merged='[]'
+    # Use temporary files instead of in-memory arrays for large datasets
+    local merged_file page_file next_file
+    merged_file=$(mktemp) || return 1
+    page_file="${merged_file}.page"
+    next_file="${merged_file}.next"
+    trap 'rm -f "$merged_file" "$page_file" "$next_file"' RETURN
+    echo '[]' > "$merged_file"
     local resp
     local pages=0
     local first_page_tm
@@ -387,9 +393,8 @@ api_v3_list_all_entities() {
         fi
         local count
         count=$(echo "$resp" | jq '.entities | length // 0')
-        local page_arr
-        page_arr=$(echo "$resp" | jq '[.entities[]?]')
-        merged=$(jq -n --argjson m "$merged" --argjson p "$page_arr" '$m + $p')
+        echo "$resp" | jq '[.entities[]?]' > "$page_file" || return 1
+        jq -s '.[0] + .[1]' "$merged_file" "$page_file" > "$next_file" && mv "$next_file" "$merged_file" || return 1
         offset=$((offset + count))
         if [ "$count" -eq 0 ]; then
             break
@@ -408,11 +413,11 @@ api_v3_list_all_entities() {
 
     if [ "$DEBUG_DETACH" = true ]; then
         local merged_len
-        merged_len=$(echo "$merged" | jq 'length')
+        merged_len=$(jq 'length' "$merged_file")
         echo "DEBUG: ${listKind} list: ${pages} HTTP page(s), merged_entities=${merged_len}, PC total_matches=${first_page_tm}" >&2
     fi
 
-    echo "$merged" | jq -c --argjson tf "$first_page_tm" '{entities: ., metadata: {total_matches: (if $tf != null then $tf else length end)}}'
+    jq -c --argjson tf "$first_page_tm" '{entities: ., metadata: {total_matches: (if $tf != null then $tf else length end)}}' "$merged_file"
 }
 
 # Read-only report: VMs with any K8s cluster category, pvc-* VGs from disk_list (aligned with Infrastructure-report.sh).
